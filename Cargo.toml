@@ -1,9 +1,17 @@
 [package]
-name = "codecrafters-shell"
+name = "pesh"
 version = "0.1.0"
-authors = ["Codecrafters <hello@codecrafters.io>"]
 edition = "2024"
+publish = false
+authors = ["Christoph J. Scherr <software@cscherr.de>"]
+license = "GPL-3.0-or-later"
+description = "a fancy learning shell"
+readme = "README.md"
+homepage = "https://github.com/PlexSheep/pesh"
+repository = "https://github.com/PlexSheep/pesh"
+keywords = ["template"]
 rust-version = "1.91"
+
 
 [dependencies]
 anyhow = "1.0.68"                                # error handling
