@@ -1,6 +1,6 @@
 use std::process::ExitCode;
 
-use crate::error::PeshResult;
+use crate::error::{EvaluatorError, PeshError, PeshResult};
 
 pub struct Evaluator {}
 
@@ -9,7 +9,10 @@ impl Evaluator {
         Evaluator {}
     }
     pub fn eval_raw(&self, command_raw: String) -> PeshResult<ExitCode> {
-        todo!()
+        Err(PeshError::Evaluator(
+            command_raw,
+            EvaluatorError::CommandNotFound,
+        ))
     }
 }
 

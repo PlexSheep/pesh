@@ -44,15 +44,23 @@ impl Cli {
     }
 }
 
-pub fn cli(args: &[String]) -> PeshResult<ExitCode> {
+pub fn cli(args: &[String]) -> ExitCode {
     let cli: Cli = CliArgs::parse_from(args).into();
 
-    if cli.interactive {
+    let res = if cli.interactive {
         cli.interactive()
     } else if let Some(command) = cli.args.command {
         cli.eval.eval_raw(command)
     } else {
         unreachable!()
+    };
+
+    match res {
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::FAILURE
+        }
+        Ok(ec) => ec,
     }
 }
 
