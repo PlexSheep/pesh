@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
 
@@ -25,7 +25,22 @@ impl TryFrom<&[String]> for Command {
     fn try_from(command: &[String]) -> Result<Self, Self::Error> {
         match BuiltinCommand::from_str(&command[0]) {
             Err(_) => (),
-            Ok(builtin_command) => {
+            Ok(mut builtin_command) => {
+                match &builtin_command {
+                    BuiltinCommand::cd(_) => {
+                        builtin_command =
+                            BuiltinCommand::cd(if let Some(path_raw) = command.get(1) {
+                                let path = PathBuf::from_str(path_raw).expect("Infalliable");
+                                Some(path)
+                            } else {
+                                None
+                            })
+                    }
+                    BuiltinCommand::echo(_) => {
+                        builtin_command = BuiltinCommand::echo(command[1..].to_vec())
+                    }
+                    _ => (),
+                }
                 return Ok(Self::Builtin(builtin_command));
             }
         }
