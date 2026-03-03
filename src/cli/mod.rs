@@ -10,6 +10,7 @@ use dialoguer::{BasicHistory, Input};
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::PeshError;
+use crate::eval::instruction::{BuiltinInstruction, Instruction};
 use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
@@ -54,10 +55,15 @@ pub struct Cli {
 impl Cli {
     pub fn interactive(&mut self) -> PeshResult<ExitCode> {
         let mut command;
+        let mut instruction;
         let mut ret;
         loop {
             command = self.input()?;
-            ret = self.eval.eval_raw(&command);
+            instruction = self.eval.eval_raw(&command)?;
+            if matches!(instruction, Instruction::Builtin(BuiltinInstruction::exit)) {
+                break;
+            }
+            ret = self.execute_instruction(instruction);
             if let Err(e) = ret {
                 eprintln!("{e}")
             }
@@ -73,20 +79,26 @@ impl Cli {
             .interact_text()
             .map_err(PeshError::from)
     }
+
+    pub fn execute_instruction(&self, command: Instruction) -> PeshResult<ExitCode> {
+        todo!()
+    }
+}
+
+fn cli_inner(args: &[String]) -> PeshResult<ExitCode> {
+    let mut cli: Cli = CliArgs::parse_from(args).into();
+
+    if cli.interactive {
+        cli.interactive()
+    } else if let Some(command) = &cli.args.command {
+        cli.execute_instruction(cli.eval.eval_raw(command)?)
+    } else {
+        unreachable!()
+    }
 }
 
 pub fn cli(args: &[String]) -> ExitCode {
-    let mut cli: Cli = CliArgs::parse_from(args).into();
-
-    let res = if cli.interactive {
-        cli.interactive()
-    } else if let Some(command) = cli.args.command {
-        cli.eval.eval_raw(&command)
-    } else {
-        unreachable!()
-    };
-
-    match res {
+    match cli_inner(args) {
         Err(err) => {
             eprintln!("{err}");
             ExitCode::FAILURE

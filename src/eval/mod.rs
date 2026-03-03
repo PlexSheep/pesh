@@ -2,7 +2,10 @@ pub mod instruction;
 
 use std::process::ExitCode;
 
-use crate::error::{EvaluatorError, PeshError, PeshResult};
+use crate::{
+    error::{EvaluatorError, PeshError, PeshResult},
+    eval::instruction::Instruction,
+};
 
 pub struct Evaluator {}
 
@@ -12,7 +15,7 @@ impl Evaluator {
     }
 
     #[inline]
-    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<ExitCode> {
+    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<Instruction> {
         self.eval(&self.split(command_raw)?)
     }
 
@@ -26,12 +29,11 @@ impl Evaluator {
         }
     }
 
-    pub fn eval(&self, command: &[String]) -> PeshResult<ExitCode> {
-        // TODO: make sure that we have at least one element
-        Err(PeshError::Evaluator(
-            command[0].to_string(),
-            EvaluatorError::CommandNotFound,
-        ))
+    pub fn eval(&self, command: &[String]) -> PeshResult<Instruction> {
+        assert!(!command.is_empty());
+
+        Instruction::try_from(command)
+            .map_err(|err| PeshError::Evaluator(command[0].to_string(), err))
     }
 }
 
