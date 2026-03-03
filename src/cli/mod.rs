@@ -10,7 +10,7 @@ use dialoguer::{BasicHistory, Input};
 
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
-use crate::error::PeshError;
+use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::{BuiltinCommand, Command};
 use crate::{error::PeshResult, eval::Evaluator};
 
@@ -98,7 +98,10 @@ impl Cli {
                     todo!("{other} is not yet implemented")
                 }
             },
-            Command::Extern(ei) => todo!(),
+            Command::Extern(ei) => Err(PeshError::Evaluator(
+                ei[0].to_string(),
+                EvaluatorError::CommandNotFound,
+            )),
         }
     }
 }
