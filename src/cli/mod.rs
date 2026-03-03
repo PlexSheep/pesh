@@ -85,7 +85,7 @@ impl Cli {
         match command {
             Command::Builtin(bi) => match &bi {
                 BuiltinCommand::r#type(arg) => {
-                    if Command::is_builtin(&[arg.to_string()])? {
+                    if Command::is_builtin(&[arg.to_string()]) {
                         println!("{} is a shell builtin", arg);
                         Ok(ExitCode::SUCCESS)
                     } else {

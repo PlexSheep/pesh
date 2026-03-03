@@ -20,4 +20,6 @@ pub enum EvaluatorError {
     CommandNotFound,
     #[error("input could not be parsed")]
     SplitError,
+    #[error("wrong number of arguments")]
+    WrongNumberOfArguments(u8),
 }
