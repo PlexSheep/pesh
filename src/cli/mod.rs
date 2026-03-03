@@ -93,6 +93,14 @@ impl Cli {
                     );
                     Ok(ExitCode::SUCCESS)
                 }
+                BuiltinCommand::echo(args) => {
+                    // TODO: adding command line args for the builtin echo would be neat
+                    for arg in args {
+                        print!("{arg}");
+                    }
+                    println!();
+                    Ok(ExitCode::SUCCESS)
+                }
                 BuiltinCommand::exit => unreachable!(),
                 other => {
                     todo!("{other} is not yet implemented")

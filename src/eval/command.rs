@@ -16,6 +16,7 @@ pub enum BuiltinCommand {
     exit,
     pwd,
     cd(Option<std::path::PathBuf>),
+    echo(Vec<String>),
 }
 
 impl TryFrom<&[String]> for Command {
