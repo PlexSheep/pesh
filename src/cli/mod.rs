@@ -1,10 +1,14 @@
-use std::io::{self, Write};
+pub mod completion;
+pub mod theme;
+
 use std::process::ExitCode;
 
 use clap::Parser;
 use dialoguer::theme::{ColorfulTheme, SimpleTheme};
-use dialoguer::{BasicHistory, Completion, Input};
+use dialoguer::{BasicHistory, Input};
 
+use crate::cli::completion::PeshCompletion;
+use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::PeshError;
 use crate::{error::PeshResult, eval::Evaluator};
 
@@ -45,25 +49,6 @@ pub struct Cli {
     input_theme: Theme,
     input_completion: PeshCompletion,
     input_history: BasicHistory,
-}
-
-#[allow(clippy::large_enum_variant)]
-pub enum Theme {
-    Fancy(ColorfulTheme),
-    Posix(SimpleTheme),
-}
-
-pub struct PeshCompletion {
-    options: Vec<String>,
-}
-
-impl Theme {
-    fn downcast(&self) -> &dyn dialoguer::theme::Theme {
-        match self {
-            Self::Fancy(t) => t,
-            Self::Posix(t) => t,
-        }
-    }
 }
 
 impl Cli {
@@ -114,7 +99,7 @@ impl From<CliArgs> for Cli {
     fn from(args: CliArgs) -> Self {
         let input_completion = PeshCompletion::default();
         let input_theme = if args.posix {
-            Theme::Posix(SimpleTheme)
+            Theme::Posix(PosixTheme::default())
         } else {
             Theme::Fancy(ColorfulTheme::default())
         };
@@ -135,30 +120,5 @@ impl From<CliArgs> for Cli {
         }
 
         c
-    }
-}
-
-impl Default for PeshCompletion {
-    fn default() -> Self {
-        PeshCompletion {
-            options: vec!["pwd".to_string(), "cd".to_string()],
-        }
-    }
-}
-
-impl Completion for PeshCompletion {
-    /// Simple completion implementation based on substring
-    fn get(&self, input: &str) -> Option<String> {
-        let matches = self
-            .options
-            .iter()
-            .filter(|option| option.starts_with(input))
-            .collect::<Vec<_>>();
-
-        if matches.len() == 1 {
-            Some(matches[0].to_string())
-        } else {
-            None
-        }
     }
 }
