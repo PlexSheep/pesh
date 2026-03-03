@@ -1,8 +1,7 @@
 use std::io::{self, Write};
 use std::process::ExitCode;
 
-use chrono::{NaiveTime, TimeDelta};
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 use crate::{error::PeshResult, eval::Evaluator};
 
