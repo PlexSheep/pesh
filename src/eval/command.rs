@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
 
-use crate::error::EvaluatorError;
+use crate::error::{EvaluatorError, PeshError, PeshResult};
 
 #[derive(Debug, Clone, Hash)]
 pub enum Command {
@@ -17,6 +17,20 @@ pub enum BuiltinCommand {
     pwd,
     cd(Option<std::path::PathBuf>),
     echo(Vec<String>),
+    #[strum(serialize = "type")]
+    r#type(String),
+}
+
+impl Command {
+    pub fn is_builtin(command: &[String]) -> PeshResult<bool> {
+        let cmd = Command::try_from(command)
+            .map_err(|err| PeshError::Evaluator(command[0].to_string(), err))?;
+        if matches!(cmd, Command::Builtin(_)) {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 impl TryFrom<&[String]> for Command {
@@ -27,6 +41,9 @@ impl TryFrom<&[String]> for Command {
             Err(_) => (),
             Ok(mut builtin_command) => {
                 match &builtin_command {
+                    BuiltinCommand::r#type(_) => {
+                        builtin_command = BuiltinCommand::r#type(command[1].to_string())
+                    }
                     BuiltinCommand::cd(_) => {
                         builtin_command =
                             BuiltinCommand::cd(if let Some(path_raw) = command.get(1) {
