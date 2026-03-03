@@ -4,7 +4,7 @@ pub mod theme;
 use std::process::ExitCode;
 
 use clap::Parser;
-use dialoguer::theme::{ColorfulTheme, SimpleTheme};
+use dialoguer::theme::ColorfulTheme;
 use dialoguer::{BasicHistory, Input};
 
 use crate::cli::completion::PeshCompletion;
@@ -99,7 +99,7 @@ impl From<CliArgs> for Cli {
     fn from(args: CliArgs) -> Self {
         let input_completion = PeshCompletion::default();
         let input_theme = if args.posix {
-            Theme::Posix(PosixTheme::default())
+            Theme::Posix(PosixTheme)
         } else {
             Theme::Fancy(ColorfulTheme::default())
         };

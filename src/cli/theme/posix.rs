@@ -1,5 +1,3 @@
-use console::style;
-
 pub const PROMPT_DOLLAR: char = '$';
 
 #[derive(Debug, Default, Clone, Copy)]
