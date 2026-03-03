@@ -1,6 +1,8 @@
 pub mod completion;
 pub mod theme;
 
+use std::env;
+use std::os::unix::process;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -80,8 +82,25 @@ impl Cli {
             .map_err(PeshError::from)
     }
 
-    pub fn execute_instruction(&self, command: Instruction) -> PeshResult<ExitCode> {
-        todo!()
+    pub fn execute_instruction(&self, instruction: Instruction) -> PeshResult<ExitCode> {
+        match instruction {
+            Instruction::Builtin(bi) => match bi {
+                BuiltinInstruction::pwd => {
+                    println!(
+                        "{}",
+                        env::current_dir()
+                            .expect("no current working directory")
+                            .to_string_lossy()
+                    );
+                    Ok(ExitCode::SUCCESS)
+                }
+                BuiltinInstruction::exit => unreachable!(),
+                other => {
+                    todo!("{other} is not yet implemented")
+                }
+            },
+            Instruction::Extern(ei) => todo!(),
+        }
     }
 }
 
