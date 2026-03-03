@@ -8,9 +8,9 @@ impl Evaluator {
     pub fn new() -> Self {
         Evaluator {}
     }
-    pub fn eval_raw(&self, command_raw: String) -> PeshResult<ExitCode> {
+    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<ExitCode> {
         Err(PeshError::Evaluator(
-            command_raw,
+            command_raw.to_string(),
             EvaluatorError::CommandNotFound,
         ))
     }

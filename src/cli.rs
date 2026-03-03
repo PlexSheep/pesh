@@ -2,7 +2,10 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::Parser;
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::{Completion, Input};
 
+use crate::error::PeshError;
 use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
@@ -34,12 +37,31 @@ pub struct Cli {
     args: CliArgs,
     interactive: bool,
     eval: Evaluator,
+
+    input_theme: ColorfulTheme,
+    input_completion: PeshCompletion,
 }
+
+pub struct PeshCompletion {
+    options: Vec<String>,
+}
+
 impl Cli {
-    fn interactive(&self) -> PeshResult<ExitCode> {
-        print!("$ ");
-        io::stdout().flush()?;
+    pub fn interactive(&self) -> PeshResult<ExitCode> {
+        let mut command;
+        loop {
+            command = self.input()?;
+            self.eval.eval_raw(&command);
+        }
         Ok(ExitCode::SUCCESS)
+    }
+
+    pub fn input(&self) -> PeshResult<String> {
+        Input::<String>::with_theme(&self.input_theme)
+            .with_prompt("$")
+            .completion_with(&self.input_completion)
+            .interact_text()
+            .map_err(PeshError::from)
     }
 }
 
@@ -49,7 +71,7 @@ pub fn cli(args: &[String]) -> ExitCode {
     let res = if cli.interactive {
         cli.interactive()
     } else if let Some(command) = cli.args.command {
-        cli.eval.eval_raw(command)
+        cli.eval.eval_raw(&command)
     } else {
         unreachable!()
     };
@@ -65,9 +87,14 @@ pub fn cli(args: &[String]) -> ExitCode {
 
 impl From<CliArgs> for Cli {
     fn from(args: CliArgs) -> Self {
+        let input_completion = PeshCompletion::default();
+        let input_theme = ColorfulTheme::default();
+
         let c = Cli {
             interactive: args.command.is_none(),
             eval: Evaluator::default(),
+            input_completion,
+            input_theme,
             args,
         };
 
@@ -77,5 +104,30 @@ impl From<CliArgs> for Cli {
         }
 
         c
+    }
+}
+
+impl Default for PeshCompletion {
+    fn default() -> Self {
+        PeshCompletion {
+            options: vec!["pwd".to_string(), "cd".to_string()],
+        }
+    }
+}
+
+impl Completion for PeshCompletion {
+    /// Simple completion implementation based on substring
+    fn get(&self, input: &str) -> Option<String> {
+        let matches = self
+            .options
+            .iter()
+            .filter(|option| option.starts_with(input))
+            .collect::<Vec<_>>();
+
+        if matches.len() == 1 {
+            Some(matches[0].to_string())
+        } else {
+            None
+        }
     }
 }

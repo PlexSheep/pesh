@@ -10,6 +10,8 @@ pub enum PeshError {
     Os(#[from] io::Error),
     #[error("{0}: {1}")]
     Evaluator(String, EvaluatorError),
+    #[error("Input Error: {0}")]
+    Input(#[from] dialoguer::Error),
 }
 
 #[derive(Error, Debug)]
