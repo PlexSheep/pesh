@@ -3,7 +3,7 @@ use std::{path::PathBuf, str::FromStr};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
 
-use crate::error::{EvaluatorError, PeshError, PeshResult};
+use crate::error::EvaluatorError;
 
 #[derive(Debug, Clone, Hash)]
 pub enum Command {
