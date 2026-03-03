@@ -8,7 +8,7 @@ impl Evaluator {
     pub fn new() -> Self {
         Evaluator {}
     }
-    pub fn eval_raw(&self, command_raw: String) -> PeshResult<ExitCode> {
+    pub fn eval_raw(&self, _command_raw: String) -> PeshResult<ExitCode> {
         todo!()
     }
 }
