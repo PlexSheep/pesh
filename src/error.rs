@@ -18,4 +18,6 @@ pub enum PeshError {
 pub enum EvaluatorError {
     #[error("command not found")]
     CommandNotFound,
+    #[error("input could not be parsed")]
+    SplitError,
 }
