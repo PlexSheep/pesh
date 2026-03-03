@@ -1,7 +1,8 @@
-#[allow(unused_imports)]
-use std::io::{self, Write};
+use std::{env, process::ExitCode};
 
-fn main() {
-    print!("$ ");
-    io::stdout().flush().unwrap();
+use pesh::error::PeshResult;
+
+fn main() -> PeshResult<ExitCode> {
+    let args: Vec<String> = env::args().collect();
+    pesh::cli::cli(&args)
 }
