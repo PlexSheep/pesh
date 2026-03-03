@@ -1,7 +1,5 @@
 pub mod command;
 
-use std::process::ExitCode;
-
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
     eval::command::Command,
