@@ -95,10 +95,15 @@ impl Cli {
                 }
                 BuiltinCommand::echo(args) => {
                     // TODO: adding command line args for the builtin echo would be neat
-                    for arg in args {
+                    for (i, arg) in args.iter().enumerate() {
+                        if i != 0 {
+                            print!(" ");
+                        }
                         print!("{arg}");
+                        if i + 1 == args.len() {
+                            println!()
+                        }
                     }
-                    println!();
                     Ok(ExitCode::SUCCESS)
                 }
                 BuiltinCommand::exit => unreachable!(),
