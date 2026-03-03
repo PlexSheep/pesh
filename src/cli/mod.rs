@@ -2,7 +2,6 @@ pub mod completion;
 pub mod theme;
 
 use std::env;
-use std::os::unix::process;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -12,7 +11,7 @@ use dialoguer::{BasicHistory, Input};
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::PeshError;
-use crate::eval::instruction::{BuiltinInstruction, Instruction};
+use crate::eval::command::{BuiltinCommand, Command};
 use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
@@ -56,16 +55,16 @@ pub struct Cli {
 
 impl Cli {
     pub fn interactive(&mut self) -> PeshResult<ExitCode> {
+        let mut input;
         let mut command;
-        let mut instruction;
         let mut ret;
         loop {
-            command = self.input()?;
-            instruction = self.eval.eval_raw(&command)?;
-            if matches!(instruction, Instruction::Builtin(BuiltinInstruction::exit)) {
+            input = self.input()?;
+            command = self.eval.eval_raw(&input)?;
+            if matches!(command, Command::Builtin(BuiltinCommand::exit)) {
                 break;
             }
-            ret = self.execute_instruction(instruction);
+            ret = self.execute_command(command);
             if let Err(e) = ret {
                 eprintln!("{e}")
             }
@@ -82,10 +81,10 @@ impl Cli {
             .map_err(PeshError::from)
     }
 
-    pub fn execute_instruction(&self, instruction: Instruction) -> PeshResult<ExitCode> {
-        match instruction {
-            Instruction::Builtin(bi) => match bi {
-                BuiltinInstruction::pwd => {
+    pub fn execute_command(&self, command: Command) -> PeshResult<ExitCode> {
+        match command {
+            Command::Builtin(bi) => match bi {
+                BuiltinCommand::pwd => {
                     println!(
                         "{}",
                         env::current_dir()
@@ -94,12 +93,12 @@ impl Cli {
                     );
                     Ok(ExitCode::SUCCESS)
                 }
-                BuiltinInstruction::exit => unreachable!(),
+                BuiltinCommand::exit => unreachable!(),
                 other => {
                     todo!("{other} is not yet implemented")
                 }
             },
-            Instruction::Extern(ei) => todo!(),
+            Command::Extern(ei) => todo!(),
         }
     }
 }
@@ -110,7 +109,7 @@ fn cli_inner(args: &[String]) -> PeshResult<ExitCode> {
     if cli.interactive {
         cli.interactive()
     } else if let Some(command) = &cli.args.command {
-        cli.execute_instruction(cli.eval.eval_raw(command)?)
+        cli.execute_command(cli.eval.eval_raw(command)?)
     } else {
         unreachable!()
     }
