@@ -31,6 +31,10 @@ pub struct CliArgs {
     /// Execute a given command and exit, non interactive
     #[arg(short, long, value_name = "COMMMAND")]
     command: Option<String>,
+
+    /// POSIX compliant behavior
+    #[arg(short, long)]
+    posix: bool,
 }
 
 pub struct Cli {
@@ -38,26 +42,46 @@ pub struct Cli {
     interactive: bool,
     eval: Evaluator,
 
-    input_theme: ColorfulTheme,
+    input_theme: Theme,
     input_completion: PeshCompletion,
+    input_history: BasicHistory,
+}
+
+#[allow(clippy::large_enum_variant)]
+pub enum Theme {
+    Fancy(ColorfulTheme),
+    Posix(SimpleTheme),
 }
 
 pub struct PeshCompletion {
     options: Vec<String>,
 }
 
+impl Theme {
+    fn downcast(&self) -> &dyn dialoguer::theme::Theme {
+        match self {
+            Self::Fancy(t) => t,
+            Self::Posix(t) => t,
+        }
+    }
+}
+
 impl Cli {
-    pub fn interactive(&self) -> PeshResult<ExitCode> {
+    pub fn interactive(&mut self) -> PeshResult<ExitCode> {
         let mut command;
+        let mut ret;
         loop {
             command = self.input()?;
-            self.eval.eval_raw(&command);
+            ret = self.eval.eval_raw(&command);
+            if let Err(e) = ret {
+                eprintln!("{e}")
+            }
         }
         Ok(ExitCode::SUCCESS)
     }
 
-        Input::<String>::with_theme(&self.input_theme)
     pub fn input(&mut self) -> PeshResult<String> {
+        Input::<String>::with_theme(self.input_theme.downcast())
             .with_prompt("$")
             .history_with(&mut self.input_history)
             .completion_with(&self.input_completion)
@@ -89,7 +113,12 @@ pub fn cli(args: &[String]) -> ExitCode {
 impl From<CliArgs> for Cli {
     fn from(args: CliArgs) -> Self {
         let input_completion = PeshCompletion::default();
-        let input_theme = ColorfulTheme::default();
+        let input_theme = if args.posix {
+            Theme::Posix(SimpleTheme)
+        } else {
+            Theme::Fancy(ColorfulTheme::default())
+        };
+        let input_history = BasicHistory::new().no_duplicates(true);
 
         let c = Cli {
             interactive: args.command.is_none(),
