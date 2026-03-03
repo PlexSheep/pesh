@@ -2,8 +2,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use clap::Parser;
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Completion, Input};
+use dialoguer::theme::{ColorfulTheme, SimpleTheme};
+use dialoguer::{BasicHistory, Completion, Input};
 
 use crate::error::PeshError;
 use crate::{error::PeshResult, eval::Evaluator};
@@ -28,7 +28,7 @@ Author: {author-with-newline}
 "#
 )]
 pub struct CliArgs {
-    /// Type of time operation to perform
+    /// Execute a given command and exit, non interactive
     #[arg(short, long, value_name = "COMMMAND")]
     command: Option<String>,
 }
@@ -56,9 +56,10 @@ impl Cli {
         Ok(ExitCode::SUCCESS)
     }
 
-    pub fn input(&self) -> PeshResult<String> {
         Input::<String>::with_theme(&self.input_theme)
+    pub fn input(&mut self) -> PeshResult<String> {
             .with_prompt("$")
+            .history_with(&mut self.input_history)
             .completion_with(&self.input_completion)
             .interact_text()
             .map_err(PeshError::from)
@@ -66,7 +67,7 @@ impl Cli {
 }
 
 pub fn cli(args: &[String]) -> ExitCode {
-    let cli: Cli = CliArgs::parse_from(args).into();
+    let mut cli: Cli = CliArgs::parse_from(args).into();
 
     let res = if cli.interactive {
         cli.interactive()
@@ -95,6 +96,7 @@ impl From<CliArgs> for Cli {
             eval: Evaluator::default(),
             input_completion,
             input_theme,
+            input_history,
             args,
         };
 
