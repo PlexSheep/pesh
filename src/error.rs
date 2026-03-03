@@ -16,7 +16,7 @@ pub enum PeshError {
 
 #[derive(Error, Debug)]
 pub enum EvaluatorError {
-    #[error("command not found")]
+    #[error("not found")]
     CommandNotFound,
     #[error("input could not be parsed")]
     SplitError,
