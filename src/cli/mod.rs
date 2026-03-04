@@ -12,6 +12,7 @@ use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::{BuiltinCommand, Command};
+use crate::eval::locate_executable;
 use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
@@ -89,10 +90,17 @@ impl Cli {
                         println!("{} is a shell builtin", arg);
                         Ok(ExitCode::SUCCESS)
                     } else {
-                        Err(PeshError::Evaluator(
-                            arg.to_string(),
-                            EvaluatorError::CommandNotFound,
-                        ))
+                        let path_env = std::env::var("PATH").unwrap_or("".to_string());
+                        match locate_executable(&path_env, arg)? {
+                            Some(path) => {
+                                println!("{} is {}", arg, path.to_string_lossy());
+                                Ok(ExitCode::SUCCESS)
+                            }
+                            None => Err(PeshError::Evaluator(
+                                arg.to_string(),
+                                EvaluatorError::CommandNotFound,
+                            )),
+                        }
                     }
                 }
                 BuiltinCommand::pwd => {

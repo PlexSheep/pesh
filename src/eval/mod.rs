@@ -1,5 +1,9 @@
 pub mod command;
 
+use std::{fs, io, path::PathBuf};
+
+use nix::unistd::AccessFlags;
+
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
     eval::command::Command,
@@ -34,6 +38,39 @@ impl Evaluator {
     }
 }
 
+pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Option<PathBuf>> {
+    let mut path: PathBuf;
+    let mut path_meta;
+    for path_raw in path_raw_env.split(":") {
+        path = path_raw.into();
+        path_meta = path.metadata()?;
+        if !path_meta.is_dir() {
+            continue;
+        }
+
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let ent_path = entry.path();
+
+            if ent_path.is_dir() {
+                continue;
+            }
+
+            if ent_path.file_name().expect("no file name") != executable {
+                continue;
+            }
+
+            if let Err(e) = nix::unistd::access(&ent_path, AccessFlags::X_OK) {
+                eprintln!("{e}");
+                continue;
+            }
+
+            return Ok(Some(ent_path));
+        }
+    }
+    Ok(None)
+}
+
 impl Default for Evaluator {
     #[inline]
     fn default() -> Self {
@@ -43,7 +80,7 @@ impl Default for Evaluator {
 
 #[cfg(test)]
 mod tests {
-    use crate::eval::Evaluator;
+    use super::*;
 
     #[test]
     fn eval_split() {
@@ -65,5 +102,13 @@ mod tests {
             e.split("hello \"world's boom \\\"of love\"").unwrap(),
             ["hello", "world's boom \"of love"]
         );
+    }
+
+    #[test]
+    fn eval_locate_executable() {
+        assert_eq!(
+            locate_executable("/usr/bin:/usr/sbin", "bash"),
+            Some("/usr/bin/bash".into())
+        )
     }
 }
