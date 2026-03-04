@@ -1,8 +1,9 @@
 pub mod completion;
 pub mod theme;
 
-use std::env;
+use std::io::Write;
 use std::process::ExitCode;
+use std::{env, io};
 
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
@@ -96,10 +97,27 @@ impl Cli {
                     todo!("{other} is not yet implemented")
                 }
             },
-            Command::Extern(ei) => Err(PeshError::Evaluator(
-                ei[0].to_string(),
-                EvaluatorError::CommandNotFound,
-            )),
+            Command::Extern(ei) => {
+                let path_env = std::env::var("PATH").unwrap_or("".to_string());
+
+                match locate_executable(&path_env, &ei[0])? {
+                    Some(path) => {
+                        let cheap_out =
+                            std::process::Command::new(&ei[0]).args(&ei[1..]).output()?;
+                        io::stdout().write_all(&cheap_out.stdout)?;
+                        io::stderr().write_all(&cheap_out.stderr)?;
+                        Ok(if cheap_out.status.success() {
+                            ExitCode::SUCCESS
+                        } else {
+                            ExitCode::FAILURE
+                        })
+                    }
+                    None => Err(PeshError::Evaluator(
+                        ei[0].to_string(),
+                        EvaluatorError::CommandNotFound,
+                    )),
+                }
+            }
         }
     }
 }
