@@ -43,7 +43,10 @@ pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Opt
     let mut path_meta;
     for path_raw in path_raw_env.split(":") {
         path = path_raw.into();
-        path_meta = path.metadata()?;
+        match path.metadata() {
+            Ok(m) => path_meta = m,
+            Err(_) => continue,
+        }
         if !path_meta.is_dir() {
             continue;
         }
@@ -61,7 +64,6 @@ pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Opt
             }
 
             if let Err(e) = nix::unistd::access(&ent_path, AccessFlags::X_OK) {
-                eprintln!("{e}");
                 continue;
             }
 
