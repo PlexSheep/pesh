@@ -63,7 +63,7 @@ pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Opt
                 continue;
             }
 
-            if let Err(e) = nix::unistd::access(&ent_path, AccessFlags::X_OK) {
+            if let Err(_e) = nix::unistd::access(&ent_path, AccessFlags::X_OK) {
                 continue;
             }
 
