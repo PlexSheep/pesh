@@ -1,9 +1,7 @@
 pub mod completion;
 pub mod theme;
 
-use std::io::Write;
 use std::process::ExitCode;
-use std::{env, io};
 
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
@@ -102,7 +100,7 @@ impl Cli {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
 
                 match locate_executable(&path_env, &ei[0])? {
-                    Some(path) => {
+                    Some(_path) => {
                         let mut child =
                             std::process::Command::new(&ei[0]).args(&ei[1..]).spawn()?;
                         let res = child.wait()?;
