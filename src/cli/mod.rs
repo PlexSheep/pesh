@@ -103,11 +103,10 @@ impl Cli {
 
                 match locate_executable(&path_env, &ei[0])? {
                     Some(path) => {
-                        let cheap_out =
-                            std::process::Command::new(&ei[0]).args(&ei[1..]).output()?;
-                        io::stdout().write_all(&cheap_out.stdout)?;
-                        io::stderr().write_all(&cheap_out.stderr)?;
-                        Ok(if cheap_out.status.success() {
+                        let mut child =
+                            std::process::Command::new(&ei[0]).args(&ei[1..]).spawn()?;
+                        let res = child.wait()?;
+                        Ok(if res.success() {
                             ExitCode::SUCCESS
                         } else {
                             ExitCode::FAILURE
