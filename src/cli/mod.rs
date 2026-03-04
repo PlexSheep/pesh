@@ -11,6 +11,9 @@ use dialoguer::{BasicHistory, Input};
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::{EvaluatorError, PeshError};
+use crate::eval::command::builtins::{
+    builtin_command_echo, builtin_command_pwd, builtin_command_type,
+};
 use crate::eval::command::{BuiltinCommand, Command};
 use crate::eval::locate_executable;
 use crate::{error::PeshResult, eval::Evaluator};
@@ -85,47 +88,10 @@ impl Cli {
     pub fn execute_command(&self, command: Command) -> PeshResult<ExitCode> {
         match command {
             Command::Builtin(bi) => match &bi {
-                BuiltinCommand::r#type(arg) => {
-                    if Command::is_builtin(&[arg.to_string()]) {
-                        println!("{} is a shell builtin", arg);
-                        Ok(ExitCode::SUCCESS)
-                    } else {
-                        let path_env = std::env::var("PATH").unwrap_or("".to_string());
-                        match locate_executable(&path_env, arg)? {
-                            Some(path) => {
-                                println!("{} is {}", arg, path.to_string_lossy());
-                                Ok(ExitCode::SUCCESS)
-                            }
-                            None => Err(PeshError::Evaluator(
-                                arg.to_string(),
-                                EvaluatorError::CommandNotFound,
-                            )),
-                        }
-                    }
-                }
-                BuiltinCommand::pwd => {
-                    println!(
-                        "{}",
-                        env::current_dir()
-                            .expect("no current working directory")
-                            .to_string_lossy()
-                    );
-                    Ok(ExitCode::SUCCESS)
-                }
-                BuiltinCommand::echo(args) => {
-                    // TODO: adding command line args for the builtin echo would be neat
-                    for (i, arg) in args.iter().enumerate() {
-                        if i != 0 {
-                            print!(" ");
-                        }
-                        print!("{arg}");
-                        if i + 1 == args.len() {
-                            println!()
-                        }
-                    }
-                    Ok(ExitCode::SUCCESS)
-                }
                 BuiltinCommand::exit => unreachable!(),
+                BuiltinCommand::r#type(arg) => builtin_command_type(arg),
+                BuiltinCommand::pwd => builtin_command_pwd(),
+                BuiltinCommand::echo(args) => builtin_command_echo(args),
                 other => {
                     todo!("{other} is not yet implemented")
                 }

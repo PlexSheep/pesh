@@ -80,6 +80,60 @@ impl TryFrom<&[String]> for Command {
     }
 }
 
+pub mod builtins {
+    use std::{env, process::ExitCode};
+
+    use crate::{
+        error::{PeshError, PeshResult},
+        eval::locate_executable,
+    };
+
+    use super::*;
+
+    pub fn builtin_command_type(arg: &str) -> PeshResult<ExitCode> {
+        if Command::is_builtin(&[arg.to_string()]) {
+            println!("{} is a shell builtin", arg);
+            Ok(ExitCode::SUCCESS)
+        } else {
+            let path_env = std::env::var("PATH").unwrap_or("".to_string());
+            match locate_executable(&path_env, arg)? {
+                Some(path) => {
+                    println!("{} is {}", arg, path.to_string_lossy());
+                    Ok(ExitCode::SUCCESS)
+                }
+                None => Err(PeshError::Evaluator(
+                    arg.to_string(),
+                    EvaluatorError::CommandNotFound,
+                )),
+            }
+        }
+    }
+
+    pub fn builtin_command_pwd() -> PeshResult<ExitCode> {
+        println!(
+            "{}",
+            env::current_dir()
+                .expect("no current working directory")
+                .to_string_lossy()
+        );
+        Ok(ExitCode::SUCCESS)
+    }
+
+    pub fn builtin_command_echo(args: &[String]) -> PeshResult<ExitCode> {
+        // TODO: adding command line args for the builtin echo would be neat
+        for (i, arg) in args.iter().enumerate() {
+            if i != 0 {
+                print!(" ");
+            }
+            print!("{arg}");
+            if i + 1 == args.len() {
+                println!()
+            }
+        }
+        Ok(ExitCode::SUCCESS)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
