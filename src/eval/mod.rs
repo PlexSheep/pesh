@@ -38,6 +38,10 @@ impl Evaluator {
     }
 }
 
+pub fn get_home() -> PathBuf {
+    std::env::home_dir().unwrap_or("/".into())
+}
+
 pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Option<PathBuf>> {
     let mut path: PathBuf;
     let mut path_meta;

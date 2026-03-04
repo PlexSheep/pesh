@@ -85,7 +85,7 @@ pub mod builtins {
 
     use crate::{
         error::{PeshError, PeshResult},
-        eval::locate_executable,
+        eval::{get_home, locate_executable},
     };
 
     use super::*;
@@ -130,6 +130,18 @@ pub mod builtins {
                 println!()
             }
         }
+        Ok(ExitCode::SUCCESS)
+    }
+
+    pub fn builtin_command_cd(arg: Option<&PathBuf>) -> PeshResult<ExitCode> {
+        // TODO: implement going back multiple directories with multiple dots
+        let path = match arg {
+            Some(a) if a == &Into::<PathBuf>::into("~") => get_home(),
+            None => get_home(),
+            Some(a) => a.to_owned(),
+        };
+
+        std::env::set_current_dir(path)?;
         Ok(ExitCode::SUCCESS)
     }
 }

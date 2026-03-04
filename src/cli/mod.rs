@@ -13,7 +13,7 @@ use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
 use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::builtins::{
-    builtin_command_echo, builtin_command_pwd, builtin_command_type,
+    builtin_command_cd, builtin_command_echo, builtin_command_pwd, builtin_command_type,
 };
 use crate::eval::command::{BuiltinCommand, Command};
 use crate::eval::locate_executable;
@@ -93,6 +93,7 @@ impl Cli {
                 BuiltinCommand::r#type(arg) => builtin_command_type(arg),
                 BuiltinCommand::pwd => builtin_command_pwd(),
                 BuiltinCommand::echo(args) => builtin_command_echo(args),
+                BuiltinCommand::cd(arg) => builtin_command_cd(arg.as_ref()),
                 other => {
                     todo!("{other} is not yet implemented")
                 }
