@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::{fmt::Display, io, path::PathBuf, str::FromStr};
 
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
@@ -8,12 +8,16 @@ use crate::error::EvaluatorError;
 #[derive(Debug, Clone, Hash)]
 pub struct CompositeCommand {
     commands: Vec<Command>,
+    stdout_to: Option<PathBuf>,
+    stderr_to: Option<PathBuf>,
 }
 
 impl CompositeCommand {
     pub fn new(commands: &[Command]) -> Self {
         Self {
             commands: commands.to_vec(),
+            stdout_to: None,
+            stderr_to: None,
         }
     }
 
@@ -120,8 +124,18 @@ impl Display for Command {
     }
 }
 
+pub struct Redirects {
+    pub stdin: io::Stdin,
+    pub stdout: io::Stdout,
+    pub stderr: io::Stderr,
+}
+
 pub mod builtins {
-    use std::{env, io::ErrorKind, process::ExitCode};
+    use std::{
+        env,
+        io::{self, ErrorKind, Write},
+        process::ExitCode,
+    };
 
     use crate::{
         error::PeshResult,
@@ -130,15 +144,15 @@ pub mod builtins {
 
     use super::*;
 
-    pub fn builtin_command_type(arg: &str) -> PeshResult<ExitCode> {
+    pub fn builtin_command_type(r: &mut Redirects, arg: &str) -> PeshResult<ExitCode> {
         if Command::is_builtin(&[arg.to_string()]) {
-            println!("{} is a shell builtin", arg);
+            writeln!(r.stdout, "{} is a shell builtin", arg);
             Ok(ExitCode::SUCCESS)
         } else {
             let path_env = std::env::var("PATH").unwrap_or("".to_string());
             match locate_executable(&path_env, arg)? {
                 Some(path) => {
-                    println!("{} is {}", arg, path.to_string_lossy());
+                    writeln!(r.stdout, "{} is {}", arg, path.to_string_lossy());
                     Ok(ExitCode::SUCCESS)
                 }
                 None => {
@@ -150,8 +164,9 @@ pub mod builtins {
         }
     }
 
-    pub fn builtin_command_pwd() -> PeshResult<ExitCode> {
-        println!(
+    pub fn builtin_command_pwd(r: &mut Redirects) -> PeshResult<ExitCode> {
+        writeln!(
+            r.stdout,
             "{}",
             env::current_dir()
                 .expect("no current working directory")
@@ -160,21 +175,21 @@ pub mod builtins {
         Ok(ExitCode::SUCCESS)
     }
 
-    pub fn builtin_command_echo(args: &[String]) -> PeshResult<ExitCode> {
+    pub fn builtin_command_echo(r: &mut Redirects, args: &[String]) -> PeshResult<ExitCode> {
         // TODO: adding command line args for the builtin echo would be neat
         for (i, arg) in args.iter().enumerate() {
             if i != 0 {
-                print!(" ");
+                write!(r.stdout, " ");
             }
             print!("{arg}");
             if i + 1 == args.len() {
-                println!()
+                writeln!(r.stdout);
             }
         }
         Ok(ExitCode::SUCCESS)
     }
 
-    pub fn builtin_command_cd(arg: Option<&PathBuf>) -> PeshResult<ExitCode> {
+    pub fn builtin_command_cd(_r: &mut Redirects, arg: Option<&PathBuf>) -> PeshResult<ExitCode> {
         // TODO: implement going back multiple directories with multiple dots
         let path = match arg {
             Some(a) if a == &Into::<PathBuf>::into("~") => get_home(),

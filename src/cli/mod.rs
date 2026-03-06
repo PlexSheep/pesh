@@ -1,6 +1,8 @@
 pub mod completion;
 pub mod theme;
 
+use std::io;
+use std::path::Path;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -13,7 +15,7 @@ use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::builtins::{
     builtin_command_cd, builtin_command_echo, builtin_command_pwd, builtin_command_type,
 };
-use crate::eval::command::{BuiltinCommand, Command, CompositeCommand};
+use crate::eval::command::{BuiltinCommand, Command, CompositeCommand, Redirects};
 use crate::eval::locate_executable;
 use crate::{error::PeshResult, eval::Evaluator};
 
@@ -87,8 +89,14 @@ impl Cli {
 
     pub fn execute_comp_command(&self, comp_command: CompositeCommand) -> PeshResult<ExitCode> {
         let mut ret = ExitCode::SUCCESS;
+        let mut redirs = Redirects {
+            stdin: io::stdin(),
+            stdout: io::stdout(),
+            stderr: io::stderr(),
+        };
+
         for command in comp_command.commands() {
-            ret = self.execute_command(command)?;
+            ret = self.execute_command(command, &mut redirs)?;
             if ret != ExitCode::SUCCESS {
                 return Ok(ret);
             }
@@ -96,14 +104,18 @@ impl Cli {
         Ok(ret)
     }
 
-    pub fn execute_command(&self, command: &Command) -> PeshResult<ExitCode> {
+    pub fn execute_command(
+        &self,
+        command: &Command,
+        redirs: &mut Redirects,
+    ) -> PeshResult<ExitCode> {
         let ret = match &command {
             Command::Builtin(bi) => match &bi {
                 BuiltinCommand::exit => unreachable!(),
-                BuiltinCommand::r#type(arg) => builtin_command_type(arg),
-                BuiltinCommand::pwd => builtin_command_pwd(),
-                BuiltinCommand::echo(args) => builtin_command_echo(args),
-                BuiltinCommand::cd(arg) => builtin_command_cd(arg.as_ref()),
+                BuiltinCommand::r#type(arg) => builtin_command_type(redirs, arg),
+                BuiltinCommand::pwd => builtin_command_pwd(redirs),
+                BuiltinCommand::echo(args) => builtin_command_echo(redirs, args),
+                BuiltinCommand::cd(arg) => builtin_command_cd(redirs, arg.as_ref()),
             },
             Command::Extern { argv: ei, .. } => {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
