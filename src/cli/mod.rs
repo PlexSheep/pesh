@@ -83,7 +83,7 @@ impl Cli {
             .with_prompt("$")
             .history_with(&mut self.input_history)
             .completion_with(&self.input_completion)
-            .interact_text()
+            .interact()
             .map_err(PeshError::from)
     }
 
