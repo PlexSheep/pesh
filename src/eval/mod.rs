@@ -24,17 +24,14 @@ impl Evaluator {
     pub fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
         match shlex::split(command_raw) {
             Some(parts) => Ok(parts),
-            None => Err(PeshError::Evaluator(
-                command_raw.to_string(),
-                EvaluatorError::SplitError,
-            )),
+            None => Err(PeshError::Evaluator(EvaluatorError::SplitError))?,
         }
     }
 
     pub fn eval(&self, command: &[String]) -> PeshResult<Command> {
         assert!(!command.is_empty());
 
-        Command::try_from(command).map_err(|err| PeshError::Evaluator(command[0].to_string(), err))
+        Command::try_from(command).map_err(PeshError::from)
     }
 }
 
@@ -113,7 +110,7 @@ mod tests {
     #[test]
     fn eval_locate_executable() {
         assert_eq!(
-            locate_executable("/usr/bin:/usr/sbin", "bash"),
+            locate_executable("/usr/bin:/usr/sbin", "bash").unwrap(),
             Some("/usr/bin/bash".into())
         )
     }

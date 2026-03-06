@@ -6,10 +6,10 @@ pub type PeshResult<T> = std::result::Result<T, PeshError>;
 
 #[derive(Error, Debug)]
 pub enum PeshError {
-    #[error("os error")]
+    #[error(transparent)]
     Os(#[from] io::Error),
-    #[error("{0}: {1}")]
-    Evaluator(String, EvaluatorError),
+    #[error(transparent)]
+    Evaluator(#[from] EvaluatorError),
     #[error("Input Error: {0}")]
     Input(#[from] dialoguer::Error),
 }

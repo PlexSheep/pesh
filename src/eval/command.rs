@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
@@ -80,11 +80,24 @@ impl TryFrom<&[String]> for Command {
     }
 }
 
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Builtin(bi) => bi.to_string(),
+                Self::Extern(argv) => argv[0].to_string(),
+            }
+        )
+    }
+}
+
 pub mod builtins {
     use std::{env, process::ExitCode};
 
     use crate::{
-        error::{PeshError, PeshResult},
+        error::PeshResult,
         eval::{get_home, locate_executable},
     };
 
@@ -101,10 +114,7 @@ pub mod builtins {
                     println!("{} is {}", arg, path.to_string_lossy());
                     Ok(ExitCode::SUCCESS)
                 }
-                None => Err(PeshError::Evaluator(
-                    arg.to_string(),
-                    EvaluatorError::CommandNotFound,
-                )),
+                None => Err(EvaluatorError::CommandNotFound)?,
             }
         }
     }

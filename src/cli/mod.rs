@@ -60,17 +60,13 @@ impl Cli {
     pub fn interactive(&mut self) -> PeshResult<ExitCode> {
         let mut input;
         let mut command;
-        let mut ret;
         loop {
             input = self.input()?;
             command = self.eval.eval_raw(&input)?;
             if matches!(command, Command::Builtin(BuiltinCommand::exit)) {
                 break;
             }
-            ret = self.execute_command(command);
-            if let Err(e) = ret {
-                eprintln!("{e}")
-            }
+            self.execute_command(command)?;
         }
         Ok(ExitCode::SUCCESS)
     }
@@ -85,16 +81,13 @@ impl Cli {
     }
 
     pub fn execute_command(&self, command: Command) -> PeshResult<ExitCode> {
-        match command {
+        let ret = match &command {
             Command::Builtin(bi) => match &bi {
                 BuiltinCommand::exit => unreachable!(),
                 BuiltinCommand::r#type(arg) => builtin_command_type(arg),
                 BuiltinCommand::pwd => builtin_command_pwd(),
                 BuiltinCommand::echo(args) => builtin_command_echo(args),
                 BuiltinCommand::cd(arg) => builtin_command_cd(arg.as_ref()),
-                other => {
-                    todo!("{other} is not yet implemented")
-                }
             },
             Command::Extern(ei) => {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
@@ -110,11 +103,15 @@ impl Cli {
                             ExitCode::FAILURE
                         })
                     }
-                    None => Err(PeshError::Evaluator(
-                        ei[0].to_string(),
-                        EvaluatorError::CommandNotFound,
-                    )),
+                    None => Err(EvaluatorError::CommandNotFound.into()),
                 }
+            }
+        };
+        match ret {
+            Ok(ex) => Ok(ex),
+            Err(err) => {
+                eprintln!("{}: {err}", &command);
+                Ok(ExitCode::FAILURE)
             }
         }
     }
