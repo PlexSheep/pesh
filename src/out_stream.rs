@@ -14,12 +14,12 @@ pub struct Redirects {
     pub stderr: OutStream,
 }
 
-impl Into<process::Stdio> for OutStream {
-    fn into(self) -> std::process::Stdio {
-        match self {
-            Self::Stdout(s) => process::Stdio::from(s),
-            Self::Stderr(s) => process::Stdio::from(s),
-            Self::File(s) => process::Stdio::from(s),
+impl From<OutStream> for process::Stdio {
+    fn from(val: OutStream) -> Self {
+        match val {
+            OutStream::Stdout(s) => process::Stdio::from(s),
+            OutStream::Stderr(s) => process::Stdio::from(s),
+            OutStream::File(s) => process::Stdio::from(s),
         }
     }
 }

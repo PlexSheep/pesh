@@ -2,7 +2,7 @@ pub mod command;
 
 use std::{
     fs,
-    io::{self, Stderr},
+    io::{self},
     path::PathBuf,
 };
 
@@ -12,7 +12,7 @@ use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
     eval::command::{
         CommandTask,
-        composite::{self, Command},
+        composite::Command,
     },
 };
 

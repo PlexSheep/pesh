@@ -1,9 +1,7 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::path::PathBuf;
 
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumCount, EnumIter, EnumString};
 
-use crate::{error::EvaluatorError, eval::command::CommandTask};
+use crate::eval::command::CommandTask;
 
 #[derive(Debug, Clone, Hash)]
 pub struct Command {
