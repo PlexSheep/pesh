@@ -114,7 +114,11 @@ pub mod builtins {
                     println!("{} is {}", arg, path.to_string_lossy());
                     Ok(ExitCode::SUCCESS)
                 }
-                None => Err(EvaluatorError::CommandNotFound)?,
+                None => {
+                    // we handle this somewhat strange edgecase here, without the error system
+                    eprintln!("{arg} not found");
+                    Ok(ExitCode::FAILURE)
+                }
             }
         }
     }
