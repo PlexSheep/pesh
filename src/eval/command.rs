@@ -6,9 +6,32 @@ use strum_macros::{Display, EnumCount, EnumIter, EnumString};
 use crate::error::EvaluatorError;
 
 #[derive(Debug, Clone, Hash)]
+pub struct CompositeCommand {
+    commands: Vec<Command>,
+}
+
+impl CompositeCommand {
+    pub fn new(commands: &[Command]) -> Self {
+        Self {
+            commands: commands.to_vec(),
+        }
+    }
+
+    #[inline]
+    pub fn commands(&self) -> &[Command] {
+        &self.commands
+    }
+
+    #[inline]
+    pub fn commands_len(&self) -> usize {
+        self.commands().len()
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
 pub enum Command {
     Builtin(BuiltinCommand),
-    Extern(Vec<String>),
+    Extern { argv: Vec<String> },
 }
 
 #[allow(nonstandard_style)] // these are literally the builtin commands
@@ -29,6 +52,10 @@ impl Command {
             is_builtin |= builtin.to_string() == command[0];
         }
         is_builtin
+    }
+
+    pub fn extern_argv(argv: Vec<String>) -> Self {
+        Self::Extern { argv }
     }
 }
 
@@ -76,7 +103,7 @@ impl TryFrom<&[String]> for Command {
                 return Ok(Self::Builtin(builtin_command));
             }
         }
-        Ok(Self::Extern(command.to_vec()))
+        Ok(Self::extern_argv(command.to_vec()))
     }
 }
 
@@ -87,7 +114,7 @@ impl Display for Command {
             "{}",
             match self {
                 Self::Builtin(bi) => bi.to_string(),
-                Self::Extern(argv) => argv[0].to_string(),
+                Self::Extern { argv, .. } => argv[0].to_string(),
             }
         )
     }

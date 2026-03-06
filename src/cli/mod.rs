@@ -13,7 +13,7 @@ use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::builtins::{
     builtin_command_cd, builtin_command_echo, builtin_command_pwd, builtin_command_type,
 };
-use crate::eval::command::{BuiltinCommand, Command};
+use crate::eval::command::{BuiltinCommand, Command, CompositeCommand};
 use crate::eval::locate_executable;
 use crate::{error::PeshResult, eval::Evaluator};
 
@@ -59,14 +59,19 @@ pub struct Cli {
 impl Cli {
     pub fn interactive(&mut self) -> PeshResult<ExitCode> {
         let mut input;
-        let mut command;
+        let mut comp_command;
         loop {
             input = self.input()?;
-            command = self.eval.eval_raw(&input)?;
-            if matches!(command, Command::Builtin(BuiltinCommand::exit)) {
+            comp_command = self.eval.eval_raw(&input)?;
+            if comp_command.commands_len() == 1
+                && matches!(
+                    comp_command.commands()[0],
+                    Command::Builtin(BuiltinCommand::exit)
+                )
+            {
                 break;
             }
-            self.execute_command(command)?;
+            self.execute_comp_command(comp_command)?;
         }
         Ok(ExitCode::SUCCESS)
     }
@@ -80,7 +85,18 @@ impl Cli {
             .map_err(PeshError::from)
     }
 
-    pub fn execute_command(&self, command: Command) -> PeshResult<ExitCode> {
+    pub fn execute_comp_command(&self, comp_command: CompositeCommand) -> PeshResult<ExitCode> {
+        let mut ret = ExitCode::SUCCESS;
+        for command in comp_command.commands() {
+            ret = self.execute_command(command)?;
+            if ret != ExitCode::SUCCESS {
+                return Ok(ret);
+            }
+        }
+        Ok(ret)
+    }
+
+    pub fn execute_command(&self, command: &Command) -> PeshResult<ExitCode> {
         let ret = match &command {
             Command::Builtin(bi) => match &bi {
                 BuiltinCommand::exit => unreachable!(),
@@ -89,7 +105,7 @@ impl Cli {
                 BuiltinCommand::echo(args) => builtin_command_echo(args),
                 BuiltinCommand::cd(arg) => builtin_command_cd(arg.as_ref()),
             },
-            Command::Extern(ei) => {
+            Command::Extern { argv: ei, .. } => {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
 
                 match locate_executable(&path_env, &ei[0])? {
@@ -123,7 +139,7 @@ fn cli_inner(args: &[String]) -> PeshResult<ExitCode> {
     if cli.interactive {
         cli.interactive()
     } else if let Some(command) = &cli.args.command {
-        cli.execute_command(cli.eval.eval_raw(command)?)
+        cli.execute_comp_command(cli.eval.eval_raw(command)?)
     } else {
         unreachable!()
     }

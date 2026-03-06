@@ -6,7 +6,7 @@ use nix::unistd::AccessFlags;
 
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
-    eval::command::Command,
+    eval::command::{Command, CompositeCommand},
 };
 
 pub struct Evaluator {}
@@ -17,11 +17,11 @@ impl Evaluator {
     }
 
     #[inline]
-    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<Command> {
-        self.eval(&self.split(command_raw)?)
+    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<CompositeCommand> {
+        self.eval_composite(&self.split(command_raw)?)
     }
 
-    pub fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
+    fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
         match shlex::split(command_raw) {
             Some(parts) => Ok(parts),
             None => Err(PeshError::Evaluator(EvaluatorError::SplitError))?,
@@ -32,6 +32,16 @@ impl Evaluator {
         assert!(!command.is_empty());
 
         Command::try_from(command).map_err(PeshError::from)
+    }
+
+    pub fn eval_composite(&self, argv: &[String]) -> PeshResult<CompositeCommand> {
+        let parts = argv.split(|e| e == ";");
+        let mut commands: Vec<_> = Vec::new();
+        for argv in parts {
+            commands.push(self.eval(argv)?);
+        }
+
+        Ok(CompositeCommand::new(&commands))
     }
 }
 
