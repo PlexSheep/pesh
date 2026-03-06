@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, path::PathBuf};
 
 use thiserror::Error;
 
@@ -22,4 +22,6 @@ pub enum EvaluatorError {
     SplitError,
     #[error("wrong number of arguments")]
     WrongNumberOfArguments(u8),
+    #[error("{0}: No such file or directory")]
+    FileOrDirNotFound(PathBuf),
 }

@@ -94,7 +94,7 @@ impl Display for Command {
 }
 
 pub mod builtins {
-    use std::{env, process::ExitCode};
+    use std::{env, io::ErrorKind, process::ExitCode};
 
     use crate::{
         error::PeshResult,
@@ -151,7 +151,14 @@ pub mod builtins {
             Some(a) => a.to_owned(),
         };
 
-        std::env::set_current_dir(path)?;
+        if let Err(err) = std::env::set_current_dir(&path) {
+            if err.kind() == ErrorKind::NotFound {
+                Err(EvaluatorError::FileOrDirNotFound(path))?
+            } else {
+                Err(err)?
+            }
+        }
+
         Ok(ExitCode::SUCCESS)
     }
 }
