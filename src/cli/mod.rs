@@ -9,7 +9,6 @@ use std::{fs, io};
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{BasicHistory, Input};
-use tracing::{debug, info, trace};
 
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
