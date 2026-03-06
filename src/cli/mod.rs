@@ -9,6 +9,7 @@ use std::{fs, io};
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{BasicHistory, Input};
+use tracing::{debug, info, trace};
 
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
@@ -48,6 +49,10 @@ pub struct CliArgs {
     /// POSIX compliant behavior
     #[arg(short, long)]
     posix: bool,
+
+    /// Print debug information
+    #[arg(short, long)]
+    debug: bool,
 }
 
 pub struct Cli {
@@ -200,6 +205,13 @@ impl From<CliArgs> for Cli {
         #[cfg(debug_assertions)]
         {
             assert_eq!(c.interactive, c.args.command.is_none());
+        }
+
+        if c.args.debug {
+            use tracing_subscriber::prelude::*;
+            tracing_subscriber::registry()
+                .with(tracing_subscriber::fmt::layer().without_time())
+                .init();
         }
 
         c
