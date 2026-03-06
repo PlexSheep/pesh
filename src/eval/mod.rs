@@ -1,6 +1,10 @@
 pub mod command;
 
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs,
+    io::{self, Stderr},
+    path::PathBuf,
+};
 
 use nix::unistd::AccessFlags;
 
@@ -18,7 +22,15 @@ impl Evaluator {
 
     #[inline]
     pub fn eval_raw(&self, command_raw: &str) -> PeshResult<CompositeCommand> {
-        self.eval_composite(&self.split(command_raw)?)
+        let normalized: String = command_raw
+            .to_string()
+            .replace(";", " ; ")
+            .replace("1>", " 1> ")
+            .replace("2>", " 2> ")
+            .replace(">", " 1> ")
+            .replace("&&", " && ");
+
+        self.eval_composite(&self.split(&normalized)?)
     }
 
     fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
@@ -34,14 +46,65 @@ impl Evaluator {
         Command::try_from(command).map_err(PeshError::from)
     }
 
-    pub fn eval_composite(&self, argv: &[String]) -> PeshResult<CompositeCommand> {
-        let parts = argv.split(|e| e == ";");
-        let mut commands: Vec<_> = Vec::new();
-        for argv in parts {
-            commands.push(self.eval(argv)?);
+    pub fn eval_composite(&self, parts: &[String]) -> PeshResult<CompositeCommand> {
+        #[derive(Default, Debug, Copy, Clone)]
+        enum ParseState {
+            #[default]
+            Command,
+            RedirStdout,
+            RedirStderr,
         }
 
-        Ok(CompositeCommand::new(&commands))
+        let mut pstate = ParseState::default();
+        let mut commands: Vec<_> = Vec::new();
+        let mut stdout_path = None;
+        let mut stderr_path = None;
+        let mut current_command = Vec::new();
+
+        macro_rules! submit_command {
+            () => {
+                if !current_command.is_empty() {
+                    commands.push(self.eval(&current_command)?);
+                    current_command.clear();
+                }
+            };
+        }
+
+        dbg!(&parts);
+        for subpart in parts {
+            dbg!(pstate);
+            dbg!(&subpart);
+            match pstate {
+                ParseState::Command => {
+                    if subpart == "1>" {
+                        submit_command!();
+                        pstate = ParseState::RedirStdout
+                    } else if subpart == "2>" {
+                        submit_command!();
+                        pstate = ParseState::RedirStderr
+                    } else if subpart == ";" {
+                        submit_command!();
+                        continue;
+                    } else {
+                        current_command.push(subpart.to_owned());
+                    }
+                }
+                ParseState::RedirStdout => {
+                    stdout_path = Some((subpart).into());
+                    pstate = ParseState::Command;
+                }
+                ParseState::RedirStderr => {
+                    stderr_path = Some((subpart).into());
+                    pstate = ParseState::Command;
+                }
+            }
+        }
+
+        let cc = CompositeCommand::new(&commands)
+            .stdout_to(stdout_path)
+            .stderr_to(stderr_path);
+        dbg!(&cc);
+        Ok(cc)
     }
 }
 

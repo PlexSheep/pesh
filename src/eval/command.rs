@@ -21,6 +21,16 @@ impl CompositeCommand {
         }
     }
 
+    pub fn stdout_to(mut self, path: Option<PathBuf>) -> Self {
+        self.stdout_to = path;
+        self
+    }
+
+    pub fn stderr_to(mut self, path: Option<PathBuf>) -> Self {
+        self.stderr_to = path;
+        self
+    }
+
     #[inline]
     pub fn commands(&self) -> &[Command] {
         &self.commands
