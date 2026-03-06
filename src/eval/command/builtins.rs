@@ -49,7 +49,7 @@ pub fn builtin_command_echo(r: &mut Redirects, args: &[String]) -> PeshResult<Ex
         if i != 0 {
             write!(r.stdout, " ")?;
         }
-        print!("{arg}");
+        write!(r.stdout, "{arg}")?;
         if i + 1 == args.len() {
             writeln!(r.stdout)?;
         }

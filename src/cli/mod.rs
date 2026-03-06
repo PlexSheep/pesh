@@ -126,13 +126,13 @@ impl Cli {
                 BuiltinCommand::echo(args) => builtin_command_echo(&mut redirs, args),
                 BuiltinCommand::cd(arg) => builtin_command_cd(&mut redirs, arg.as_ref()),
             },
-            CommandTask::Extern { argv: ei, .. } => {
+            CommandTask::Extern { argv, .. } => {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
 
-                match locate_executable(&path_env, &ei[0])? {
+                match locate_executable(&path_env, &argv[0])? {
                     Some(_path) => {
-                        let mut child = std::process::Command::new(&ei[0])
-                            .args(&ei[1..])
+                        let mut child = std::process::Command::new(&argv[0])
+                            .args(&argv[1..])
                             .stdout(redirs.stdout)
                             .spawn()?;
                         let res = child.wait()?;
