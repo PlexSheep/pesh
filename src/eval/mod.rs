@@ -10,7 +10,7 @@ use nix::unistd::AccessFlags;
 
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
-    eval::command::{Command, CompositeCommand},
+    eval::command::{CommandTask, composite::Command},
 };
 
 pub struct Evaluator {}
@@ -21,16 +21,14 @@ impl Evaluator {
     }
 
     #[inline]
-    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<CompositeCommand> {
+    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<Command> {
         let normalized: String = command_raw
             .to_string()
-            .replace(";", " ; ")
             .replace("1>", " 1> ")
             .replace("2>", " 2> ")
-            .replace(">", " 1> ")
-            .replace("&&", " && ");
+            .replace(">", " 1> ");
 
-        self.eval_composite(&self.split(&normalized)?)
+        self.eval_command(&self.split(&normalized)?)
     }
 
     fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
@@ -40,13 +38,13 @@ impl Evaluator {
         }
     }
 
-    pub fn eval(&self, command: &[String]) -> PeshResult<Command> {
+    pub fn eval_task(&self, command: &[String]) -> PeshResult<CommandTask> {
         assert!(!command.is_empty());
 
-        Command::try_from(command).map_err(PeshError::from)
+        CommandTask::try_from(command).map_err(PeshError::from)
     }
 
-    pub fn eval_composite(&self, parts: &[String]) -> PeshResult<CompositeCommand> {
+    pub fn eval_command(&self, parts: &[String]) -> PeshResult<Command> {
         #[derive(Default, Debug, Copy, Clone)]
         enum ParseState {
             #[default]
@@ -56,34 +54,21 @@ impl Evaluator {
         }
 
         let mut pstate = ParseState::default();
-        let mut commands: Vec<_> = Vec::new();
         let mut stdout_path = None;
         let mut stderr_path = None;
-        let mut current_command = Vec::new();
-
-        macro_rules! submit_command {
-            () => {
-                if !current_command.is_empty() {
-                    commands.push(self.eval(&current_command)?);
-                    current_command.clear();
-                }
-            };
-        }
+        let mut argv = Vec::new();
 
         for subpart in parts {
             match pstate {
                 ParseState::Command => {
                     if subpart == "1>" {
-                        submit_command!();
                         pstate = ParseState::RedirStdout
                     } else if subpart == "2>" {
-                        submit_command!();
                         pstate = ParseState::RedirStderr
                     } else if subpart == ";" {
-                        submit_command!();
                         continue;
                     } else {
-                        current_command.push(subpart.to_owned());
+                        argv.push(subpart.to_owned());
                     }
                 }
                 ParseState::RedirStdout => {
@@ -96,9 +81,9 @@ impl Evaluator {
                 }
             }
         }
-        submit_command!(); // leftovers
+        let ct = self.eval_task(&argv)?;
 
-        let cc = CompositeCommand::new(&commands)
+        let cc = Command::new(ct)
             .with_stdout_to(stdout_path)
             .with_stderr_to(stderr_path);
         Ok(cc)
