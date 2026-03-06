@@ -1,7 +1,6 @@
 pub mod completion;
 pub mod theme;
 
-use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
 use std::{fs, io};
