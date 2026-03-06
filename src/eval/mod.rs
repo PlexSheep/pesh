@@ -10,7 +10,10 @@ use nix::unistd::AccessFlags;
 
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
-    eval::command::{CommandTask, composite::Command},
+    eval::command::{
+        CommandTask,
+        composite::{self, Command},
+    },
 };
 
 pub struct Evaluator {}
@@ -22,11 +25,30 @@ impl Evaluator {
 
     #[inline]
     pub fn eval_raw(&self, command_raw: &str) -> PeshResult<Command> {
-        let normalized: String = command_raw
-            .to_string()
-            .replace("1>", " 1> ")
-            .replace("2>", " 2> ")
-            .replace(">", " 1> ");
+        let mut normalized: String = String::new();
+
+        let mut last_ch = '_';
+        let mut chars = command_raw.chars();
+        while let Some(ch) = chars.next() {
+            if ch == '>' && last_ch != '1' && last_ch != '2' {
+                normalized.push_str(" > ");
+            } else if ch.is_numeric() || ch == '&' {
+                if let Some(nch) = chars.next() {
+                    if nch == '>' {
+                        normalized.push_str(&format!(" {ch}{nch} "));
+                    } else {
+                        normalized.push(ch);
+                        normalized.push(nch);
+                    }
+                } else {
+                    normalized.push(ch);
+                }
+                continue;
+            } else {
+                normalized.push(ch);
+            }
+            last_ch = ch;
+        }
 
         self.eval_command(&self.split(&normalized)?)
     }
@@ -58,25 +80,31 @@ impl Evaluator {
         let mut stderr_path = None;
         let mut argv = Vec::new();
 
-        for subpart in parts {
+        for part in parts {
             match pstate {
                 ParseState::Command => {
-                    if subpart == "1>" {
+                    if part == "1>" || part == ">" {
                         pstate = ParseState::RedirStdout
-                    } else if subpart == "2>" {
+                    } else if part == "2>" {
                         pstate = ParseState::RedirStderr
-                    } else if subpart == ";" {
-                        continue;
+                    } else if part.chars().nth(0).is_some_and(|c| c.is_numeric())
+                        && part.chars().nth(1).is_some_and(|c| c == '>')
+                    {
+                        todo!("only 1> and 2> are currently supported")
+                    } else if part == "&>" {
+                        todo!("&> like redirections are not implemented")
+                    } else if part == ";" || part == "&&" || part == "||" {
+                        todo!("multiple commands with ';' , '||' or '&&' are not implemented")
                     } else {
-                        argv.push(subpart.to_owned());
+                        argv.push(part.to_owned());
                     }
                 }
                 ParseState::RedirStdout => {
-                    stdout_path = Some((subpart).into());
+                    stdout_path = Some((part).into());
                     pstate = ParseState::Command;
                 }
                 ParseState::RedirStderr => {
-                    stderr_path = Some((subpart).into());
+                    stderr_path = Some((part).into());
                     pstate = ParseState::Command;
                 }
             }
