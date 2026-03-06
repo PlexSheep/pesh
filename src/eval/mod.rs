@@ -70,10 +70,7 @@ impl Evaluator {
             };
         }
 
-        dbg!(&parts);
         for subpart in parts {
-            dbg!(pstate);
-            dbg!(&subpart);
             match pstate {
                 ParseState::Command => {
                     if subpart == "1>" {
@@ -99,11 +96,11 @@ impl Evaluator {
                 }
             }
         }
+        submit_command!(); // leftovers
 
         let cc = CompositeCommand::new(&commands)
-            .stdout_to(stdout_path)
-            .stderr_to(stderr_path);
-        dbg!(&cc);
+            .with_stdout_to(stdout_path)
+            .with_stderr_to(stderr_path);
         Ok(cc)
     }
 }

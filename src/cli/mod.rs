@@ -1,9 +1,10 @@
 pub mod completion;
 pub mod theme;
 
-use std::io;
+use std::io::Write;
 use std::path::Path;
 use std::process::ExitCode;
+use std::{fs, io};
 
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
@@ -15,8 +16,9 @@ use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::builtins::{
     builtin_command_cd, builtin_command_echo, builtin_command_pwd, builtin_command_type,
 };
-use crate::eval::command::{BuiltinCommand, Command, CompositeCommand, Redirects};
+use crate::eval::command::{BuiltinCommand, Command, CompositeCommand};
 use crate::eval::locate_executable;
+use crate::out_stream::Redirects;
 use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
@@ -87,16 +89,35 @@ impl Cli {
             .map_err(PeshError::from)
     }
 
-    pub fn execute_comp_command(&self, comp_command: CompositeCommand) -> PeshResult<ExitCode> {
-        let mut ret = ExitCode::SUCCESS;
-        let mut redirs = Redirects {
-            stdin: io::stdin(),
-            stdout: io::stdout(),
-            stderr: io::stderr(),
-        };
+    pub fn open_path_for_output(path: &Path, trunc: bool) -> PeshResult<fs::File> {
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(trunc)
+            .open(path)?;
+        Ok(file)
+    }
 
-        for command in comp_command.commands() {
-            ret = self.execute_command(command, &mut redirs)?;
+    pub fn execute_comp_command(&self, comp_command: CompositeCommand) -> PeshResult<ExitCode> {
+        assert!(!comp_command.commands().is_empty());
+        let mut ret = ExitCode::SUCCESS;
+
+        for (i, command) in comp_command.commands().iter().enumerate() {
+            let redirs = Redirects {
+                stdin: io::stdin(),
+                stdout: if let Some(path) = comp_command.stdout_to() {
+                    Self::open_path_for_output(path, i == 0)?.into()
+                } else {
+                    io::stdout().into()
+                },
+                stderr: if let Some(path) = comp_command.stderr_to() {
+                    Self::open_path_for_output(path, i == 0)?.into()
+                } else {
+                    io::stderr().into()
+                },
+            };
+
+            ret = self.execute_command(command, redirs)?;
             if ret != ExitCode::SUCCESS {
                 return Ok(ret);
             }
@@ -107,23 +128,25 @@ impl Cli {
     pub fn execute_command(
         &self,
         command: &Command,
-        redirs: &mut Redirects,
+        mut redirs: Redirects,
     ) -> PeshResult<ExitCode> {
         let ret = match &command {
             Command::Builtin(bi) => match &bi {
                 BuiltinCommand::exit => unreachable!(),
-                BuiltinCommand::r#type(arg) => builtin_command_type(redirs, arg),
-                BuiltinCommand::pwd => builtin_command_pwd(redirs),
-                BuiltinCommand::echo(args) => builtin_command_echo(redirs, args),
-                BuiltinCommand::cd(arg) => builtin_command_cd(redirs, arg.as_ref()),
+                BuiltinCommand::r#type(arg) => builtin_command_type(&mut redirs, arg),
+                BuiltinCommand::pwd => builtin_command_pwd(&mut redirs),
+                BuiltinCommand::echo(args) => builtin_command_echo(&mut redirs, args),
+                BuiltinCommand::cd(arg) => builtin_command_cd(&mut redirs, arg.as_ref()),
             },
             Command::Extern { argv: ei, .. } => {
                 let path_env = std::env::var("PATH").unwrap_or("".to_string());
 
                 match locate_executable(&path_env, &ei[0])? {
                     Some(_path) => {
-                        let mut child =
-                            std::process::Command::new(&ei[0]).args(&ei[1..]).spawn()?;
+                        let mut child = std::process::Command::new(&ei[0])
+                            .args(&ei[1..])
+                            .stdout(redirs.stdout)
+                            .spawn()?;
                         let res = child.wait()?;
                         Ok(if res.success() {
                             ExitCode::SUCCESS

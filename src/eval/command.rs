@@ -1,4 +1,4 @@
-use std::{fmt::Display, io, path::PathBuf, str::FromStr};
+use std::{fmt::Display, path::PathBuf, str::FromStr};
 
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumCount, EnumIter, EnumString};
@@ -21,12 +21,12 @@ impl CompositeCommand {
         }
     }
 
-    pub fn stdout_to(mut self, path: Option<PathBuf>) -> Self {
+    pub fn with_stdout_to(mut self, path: Option<PathBuf>) -> Self {
         self.stdout_to = path;
         self
     }
 
-    pub fn stderr_to(mut self, path: Option<PathBuf>) -> Self {
+    pub fn with_stderr_to(mut self, path: Option<PathBuf>) -> Self {
         self.stderr_to = path;
         self
     }
@@ -39,6 +39,14 @@ impl CompositeCommand {
     #[inline]
     pub fn commands_len(&self) -> usize {
         self.commands().len()
+    }
+
+    pub fn stderr_to(&self) -> Option<&PathBuf> {
+        self.stderr_to.as_ref()
+    }
+
+    pub fn stdout_to(&self) -> Option<&PathBuf> {
+        self.stdout_to.as_ref()
     }
 }
 
@@ -134,40 +142,35 @@ impl Display for Command {
     }
 }
 
-pub struct Redirects {
-    pub stdin: io::Stdin,
-    pub stdout: io::Stdout,
-    pub stderr: io::Stderr,
-}
-
 pub mod builtins {
     use std::{
         env,
-        io::{self, ErrorKind, Write},
+        io::{ErrorKind, Write},
         process::ExitCode,
     };
 
     use crate::{
         error::PeshResult,
         eval::{get_home, locate_executable},
+        out_stream::Redirects,
     };
 
     use super::*;
 
     pub fn builtin_command_type(r: &mut Redirects, arg: &str) -> PeshResult<ExitCode> {
         if Command::is_builtin(&[arg.to_string()]) {
-            writeln!(r.stdout, "{} is a shell builtin", arg);
+            writeln!(r.stdout, "{} is a shell builtin", arg)?;
             Ok(ExitCode::SUCCESS)
         } else {
             let path_env = std::env::var("PATH").unwrap_or("".to_string());
             match locate_executable(&path_env, arg)? {
                 Some(path) => {
-                    writeln!(r.stdout, "{} is {}", arg, path.to_string_lossy());
+                    writeln!(r.stdout, "{} is {}", arg, path.to_string_lossy())?;
                     Ok(ExitCode::SUCCESS)
                 }
                 None => {
                     // we handle this somewhat strange edgecase here, without the error system
-                    eprintln!("{arg} not found");
+                    writeln!(r.stderr, "{arg} not found")?;
                     Ok(ExitCode::FAILURE)
                 }
             }
@@ -181,7 +184,7 @@ pub mod builtins {
             env::current_dir()
                 .expect("no current working directory")
                 .to_string_lossy()
-        );
+        )?;
         Ok(ExitCode::SUCCESS)
     }
 
@@ -189,11 +192,11 @@ pub mod builtins {
         // TODO: adding command line args for the builtin echo would be neat
         for (i, arg) in args.iter().enumerate() {
             if i != 0 {
-                write!(r.stdout, " ");
+                write!(r.stdout, " ")?;
             }
             print!("{arg}");
             if i + 1 == args.len() {
-                writeln!(r.stdout);
+                writeln!(r.stdout)?;
             }
         }
         Ok(ExitCode::SUCCESS)
