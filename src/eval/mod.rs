@@ -10,10 +10,7 @@ use nix::unistd::AccessFlags;
 
 use crate::{
     error::{EvaluatorError, PeshError, PeshResult},
-    eval::command::{
-        CommandTask,
-        composite::Command,
-    },
+    eval::command::{CommandTask, composite::Command},
 };
 
 pub struct Evaluator {}
@@ -31,11 +28,29 @@ impl Evaluator {
         let mut chars = command_raw.chars();
         while let Some(ch) = chars.next() {
             if ch == '>' && last_ch != '1' && last_ch != '2' {
-                normalized.push_str(" > ");
+                if let Some(nch) = chars.next() {
+                    if nch == '>' {
+                        normalized.push_str(" >> ");
+                    } else {
+                        normalized.push_str(" > ");
+                        normalized.push(nch);
+                    }
+                } else {
+                    normalized.push_str(" > ");
+                }
             } else if ch.is_numeric() || ch == '&' {
                 if let Some(nch) = chars.next() {
                     if nch == '>' {
-                        normalized.push_str(&format!(" {ch}{nch} "));
+                        if let Some(nnch) = chars.next() {
+                            if nnch == '>' {
+                                normalized.push_str(&format!(" {ch}>> "));
+                            } else {
+                                normalized.push_str(&format!(" {ch}> "));
+                                normalized.push(nnch);
+                            }
+                        } else {
+                            normalized.push_str(" > ");
+                        }
                     } else {
                         normalized.push(ch);
                         normalized.push(nch);
