@@ -1,5 +1,6 @@
 pub mod command;
 pub mod parser;
+use parser::*;
 
 use std::{
     fs,
@@ -63,13 +64,6 @@ pub fn eval_raw(command_raw: &str) -> PeshResult<Command> {
     eval_command(&split(&normalized)?)
 }
 
-fn split(command_raw: &str) -> PeshResult<Vec<String>> {
-    match shlex::split(command_raw) {
-        Some(parts) => Ok(parts),
-        None => Err(PeshError::Evaluator(EvaluatorError::SplitError))?,
-    }
-}
-
 pub fn eval_task(command: &[String]) -> PeshResult<CommandTask> {
     assert!(!command.is_empty());
 
@@ -88,6 +82,8 @@ pub fn eval_command(parts: &[String]) -> PeshResult<Command> {
     let mut pstate = ParseState::default();
     let mut stdout_path = None;
     let mut stderr_path = None;
+    let mut stdout_append = false;
+    let mut stderr_append = false;
     let mut argv = Vec::new();
 
     // TODO: this manual parsing sucks. Find a way to do this better
@@ -96,9 +92,15 @@ pub fn eval_command(parts: &[String]) -> PeshResult<Command> {
             ParseState::Command => {
                 if part == "1>" || part == ">" {
                     pstate = ParseState::RedirStdout
+                } else if part == "1>>" || part == ">>" {
+                    pstate = ParseState::RedirStdout;
+                    stdout_append = true;
                 } else if part == "2>" {
                     pstate = ParseState::RedirStderr
-                } else if part.chars().nth(0).is_some_and(|c| c.is_numeric())
+                } else if part == "2>>" {
+                    pstate = ParseState::RedirStderr;
+                    stderr_append = true;
+                } else if part.chars().next().is_some_and(|c| c.is_numeric())
                     && part.chars().nth(1).is_some_and(|c| c == '>')
                 {
                     todo!("only 1> and 2> are currently supported")
@@ -124,7 +126,9 @@ pub fn eval_command(parts: &[String]) -> PeshResult<Command> {
 
     let cc = Command::new(ct)
         .with_stdout_to(stdout_path)
-        .with_stderr_to(stderr_path);
+        .with_stderr_to(stderr_path)
+        .with_stdout_append(stdout_append)
+        .with_stderr_append(stderr_append);
     Ok(cc)
 }
 

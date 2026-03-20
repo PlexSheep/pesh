@@ -20,11 +20,6 @@ use crate::eval::command::{BuiltinCommand, Command, CommandTask};
 use crate::eval::{eval_raw, locate_executable};
 use crate::out_stream::Redirects;
 
-/// zeitr - Time calculation utility
-///
-/// A tool for time calculations,
-/// for tracking work hours, project time spans,
-/// and performing time arithmetic operations.
 #[derive(Parser, Debug)]
 #[command(
     author,
