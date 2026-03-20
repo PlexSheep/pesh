@@ -155,6 +155,11 @@ impl Cli {
     }
 }
 
+pub fn bell() {
+    print!("\x07");
+    io::stdout().flush().expect("could not write to stdout");
+}
+
 fn cli_inner(args: &[String]) -> PeshResult<ExitCode> {
     let mut cli: Cli = CliArgs::parse_from(args).into();
 

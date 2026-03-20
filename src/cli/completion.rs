@@ -1,7 +1,7 @@
 use dialoguer::Completion;
 use strum::IntoEnumIterator;
 
-use crate::eval::command::BuiltinCommand;
+use crate::{cli::bell, eval::command::BuiltinCommand};
 
 #[derive(Default, Debug)]
 pub struct PeshCompletion {}
@@ -13,6 +13,10 @@ impl Completion for PeshCompletion {
             .map(|v| format!("{v} "))
             .filter(|s| s.starts_with(input));
 
-        matches.next()
+        let res = matches.next();
+        if res.is_none() {
+            bell();
+        }
+        res
     }
 }
