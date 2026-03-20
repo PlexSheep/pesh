@@ -11,14 +11,14 @@ use dialoguer::{BasicHistory, Input};
 
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
+use crate::error::PeshResult;
 use crate::error::{EvaluatorError, PeshError};
 use crate::eval::command::builtins::{
     builtin_command_cd, builtin_command_echo, builtin_command_pwd, builtin_command_type,
 };
 use crate::eval::command::{BuiltinCommand, Command, CommandTask};
-use crate::eval::locate_executable;
+use crate::eval::{eval_raw, locate_executable};
 use crate::out_stream::Redirects;
-use crate::{error::PeshResult, eval::Evaluator};
 
 /// zeitr - Time calculation utility
 ///
@@ -56,7 +56,6 @@ pub struct CliArgs {
 pub struct Cli {
     args: CliArgs,
     interactive: bool,
-    eval: Evaluator,
 
     input_theme: Theme,
     input_completion: PeshCompletion,
@@ -69,7 +68,7 @@ impl Cli {
         let mut command;
         loop {
             input = self.input()?;
-            command = self.eval.eval_raw(&input)?;
+            command = eval_raw(&input)?;
             if matches!(command.task(), CommandTask::Builtin(BuiltinCommand::exit)) {
                 break;
             }
@@ -166,7 +165,7 @@ fn cli_inner(args: &[String]) -> PeshResult<ExitCode> {
     if cli.interactive {
         cli.interactive()
     } else if let Some(command) = &cli.args.command {
-        cli.execute_command(cli.eval.eval_raw(command)?)
+        cli.execute_command(eval_raw(command)?)
     } else {
         unreachable!()
     }
@@ -194,7 +193,6 @@ impl From<CliArgs> for Cli {
 
         let c = Cli {
             interactive: args.command.is_none(),
-            eval: Evaluator::default(),
             input_completion,
             input_theme,
             input_history,

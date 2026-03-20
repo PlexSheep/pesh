@@ -1,4 +1,5 @@
 pub mod command;
+pub mod parser;
 
 use std::{
     fs,
@@ -13,124 +14,118 @@ use crate::{
     eval::command::{CommandTask, composite::Command},
 };
 
-pub struct Evaluator {}
+#[inline]
+pub fn eval_raw(command_raw: &str) -> PeshResult<Command> {
+    let mut normalized: String = String::new();
 
-impl Evaluator {
-    pub fn new() -> Self {
-        Evaluator {}
-    }
-
-    #[inline]
-    pub fn eval_raw(&self, command_raw: &str) -> PeshResult<Command> {
-        let mut normalized: String = String::new();
-
-        let mut last_ch = '_';
-        let mut chars = command_raw.chars();
-        while let Some(ch) = chars.next() {
-            if ch == '>' && last_ch != '1' && last_ch != '2' {
-                if let Some(nch) = chars.next() {
-                    if nch == '>' {
-                        normalized.push_str(" >> ");
-                    } else {
-                        normalized.push_str(" > ");
-                        normalized.push(nch);
-                    }
+    let mut last_ch = '_';
+    let mut chars = command_raw.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '>' && last_ch != '1' && last_ch != '2' {
+            if let Some(nch) = chars.next() {
+                if nch == '>' {
+                    normalized.push_str(" >> ");
                 } else {
                     normalized.push_str(" > ");
+                    normalized.push(nch);
                 }
-            } else if ch.is_numeric() || ch == '&' {
-                if let Some(nch) = chars.next() {
-                    if nch == '>' {
-                        if let Some(nnch) = chars.next() {
-                            if nnch == '>' {
-                                normalized.push_str(&format!(" {ch}>> "));
-                            } else {
-                                normalized.push_str(&format!(" {ch}> "));
-                                normalized.push(nnch);
-                            }
+            } else {
+                normalized.push_str(" > ");
+            }
+        } else if ch.is_numeric() || ch == '&' {
+            if let Some(nch) = chars.next() {
+                if nch == '>' {
+                    if let Some(nnch) = chars.next() {
+                        if nnch == '>' {
+                            normalized.push_str(&format!(" {ch}>> "));
                         } else {
-                            normalized.push_str(" > ");
+                            normalized.push_str(&format!(" {ch}> "));
+                            normalized.push(nnch);
                         }
                     } else {
-                        normalized.push(ch);
-                        normalized.push(nch);
+                        normalized.push_str(" > ");
                     }
                 } else {
                     normalized.push(ch);
+                    normalized.push(nch);
                 }
-                continue;
             } else {
                 normalized.push(ch);
             }
-            last_ch = ch;
+            continue;
+        } else {
+            normalized.push(ch);
         }
-
-        self.eval_command(&self.split(&normalized)?)
+        last_ch = ch;
     }
 
-    fn split(&self, command_raw: &str) -> PeshResult<Vec<String>> {
-        match shlex::split(command_raw) {
-            Some(parts) => Ok(parts),
-            None => Err(PeshError::Evaluator(EvaluatorError::SplitError))?,
-        }
+    tracing::debug!("Normalized: r#\"{normalized}\"#");
+    eval_command(&split(&normalized)?)
+}
+
+fn split(command_raw: &str) -> PeshResult<Vec<String>> {
+    match shlex::split(command_raw) {
+        Some(parts) => Ok(parts),
+        None => Err(PeshError::Evaluator(EvaluatorError::SplitError))?,
+    }
+}
+
+pub fn eval_task(command: &[String]) -> PeshResult<CommandTask> {
+    assert!(!command.is_empty());
+
+    CommandTask::try_from(command).map_err(PeshError::from)
+}
+
+pub fn eval_command(parts: &[String]) -> PeshResult<Command> {
+    #[derive(Default, Debug, Copy, Clone)]
+    enum ParseState {
+        #[default]
+        Command,
+        RedirStdout,
+        RedirStderr,
     }
 
-    pub fn eval_task(&self, command: &[String]) -> PeshResult<CommandTask> {
-        assert!(!command.is_empty());
+    let mut pstate = ParseState::default();
+    let mut stdout_path = None;
+    let mut stderr_path = None;
+    let mut argv = Vec::new();
 
-        CommandTask::try_from(command).map_err(PeshError::from)
-    }
-
-    pub fn eval_command(&self, parts: &[String]) -> PeshResult<Command> {
-        #[derive(Default, Debug, Copy, Clone)]
-        enum ParseState {
-            #[default]
-            Command,
-            RedirStdout,
-            RedirStderr,
-        }
-
-        let mut pstate = ParseState::default();
-        let mut stdout_path = None;
-        let mut stderr_path = None;
-        let mut argv = Vec::new();
-
-        for part in parts {
-            match pstate {
-                ParseState::Command => {
-                    if part == "1>" || part == ">" {
-                        pstate = ParseState::RedirStdout
-                    } else if part == "2>" {
-                        pstate = ParseState::RedirStderr
-                    } else if part.chars().nth(0).is_some_and(|c| c.is_numeric())
-                        && part.chars().nth(1).is_some_and(|c| c == '>')
-                    {
-                        todo!("only 1> and 2> are currently supported")
-                    } else if part == "&>" {
-                        todo!("&> like redirections are not implemented")
-                    } else if part == ";" || part == "&&" || part == "||" {
-                        todo!("multiple commands with ';' , '||' or '&&' are not implemented")
-                    } else {
-                        argv.push(part.to_owned());
-                    }
-                }
-                ParseState::RedirStdout => {
-                    stdout_path = Some((part).into());
-                    pstate = ParseState::Command;
-                }
-                ParseState::RedirStderr => {
-                    stderr_path = Some((part).into());
-                    pstate = ParseState::Command;
+    // TODO: this manual parsing sucks. Find a way to do this better
+    for part in parts {
+        match pstate {
+            ParseState::Command => {
+                if part == "1>" || part == ">" {
+                    pstate = ParseState::RedirStdout
+                } else if part == "2>" {
+                    pstate = ParseState::RedirStderr
+                } else if part.chars().nth(0).is_some_and(|c| c.is_numeric())
+                    && part.chars().nth(1).is_some_and(|c| c == '>')
+                {
+                    todo!("only 1> and 2> are currently supported")
+                } else if part == "&>" {
+                    todo!("&> like redirections are not implemented")
+                } else if part == ";" || part == "&&" || part == "||" {
+                    todo!("multiple commands with ';' , '||' or '&&' are not implemented")
+                } else {
+                    argv.push(part.to_owned());
                 }
             }
+            ParseState::RedirStdout => {
+                stdout_path = Some((part).into());
+                pstate = ParseState::Command;
+            }
+            ParseState::RedirStderr => {
+                stderr_path = Some((part).into());
+                pstate = ParseState::Command;
+            }
         }
-        let ct = self.eval_task(&argv)?;
-
-        let cc = Command::new(ct)
-            .with_stdout_to(stdout_path)
-            .with_stderr_to(stderr_path);
-        Ok(cc)
     }
+    let ct = eval_task(&argv)?;
+
+    let cc = Command::new(ct)
+        .with_stdout_to(stdout_path)
+        .with_stderr_to(stderr_path);
+    Ok(cc)
 }
 
 pub fn get_home() -> PathBuf {
@@ -172,35 +167,27 @@ pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Opt
     Ok(None)
 }
 
-impl Default for Evaluator {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn eval_split() {
-        let e = Evaluator::default();
-        assert_eq!(e.split("hello world").unwrap(), ["hello", "world"]);
+        assert_eq!(split("hello world").unwrap(), ["hello", "world"]);
         assert_eq!(
-            e.split("hello world 19193139-asfjkagsjiju==??").unwrap(),
+            split("hello world 19193139-asfjkagsjiju==??").unwrap(),
             ["hello", "world", "19193139-asfjkagsjiju==??"]
         );
         assert_eq!(
-            e.split("hello \"world of love\"").unwrap(),
+            split("hello \"world of love\"").unwrap(),
             ["hello", "world of love"]
         );
         assert_eq!(
-            e.split("hello \"world \\\"of love\"").unwrap(),
+            split("hello \"world \\\"of love\"").unwrap(),
             ["hello", "world \"of love"]
         );
         assert_eq!(
-            e.split("hello \"world's boom \\\"of love\"").unwrap(),
+            split("hello \"world's boom \\\"of love\"").unwrap(),
             ["hello", "world's boom \"of love"]
         );
     }
