@@ -1,6 +1,7 @@
 pub mod completion;
 pub mod theme;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{fs, io};
 use std::{io::Write, path::Path};
@@ -8,6 +9,7 @@ use std::{io::Write, path::Path};
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{BasicHistory, Input};
+use nix::unistd::AccessFlags;
 
 use crate::cli::completion::PeshCompletion;
 use crate::cli::theme::{Theme, posix::PosixTheme};
@@ -125,9 +127,7 @@ impl Cli {
                 BuiltinCommand::cd(arg) => builtin_command_cd(&mut redirs, arg.as_ref()),
             },
             CommandTask::Extern { argv, .. } => {
-                let path_env = std::env::var("PATH").unwrap_or("".to_string());
-
-                match locate_executable(&path_env, &argv[0])? {
+                match locate_executable(&path_from_env(), &argv[0])? {
                     Some(_path) => {
                         let mut child = std::process::Command::new(&argv[0])
                             .args(&argv[1..])
@@ -153,6 +153,48 @@ impl Cli {
             }
         }
     }
+}
+
+pub fn path_from_env() -> String {
+    std::env::var("PATH").unwrap_or("".to_string())
+}
+
+pub fn parse_env_paths(path: &str) -> Vec<PathBuf> {
+    path.split(":").map(|s| s.into()).collect()
+}
+
+pub fn binaries_in_path(path: &str) -> io::Result<Vec<PathBuf>> {
+    let mut path_meta;
+    let mut executables = Vec::new();
+    for path in parse_env_paths(path) {
+        match path.metadata() {
+            Ok(m) => path_meta = m,
+            Err(_) => continue,
+        }
+        if !path_meta.is_dir() {
+            continue;
+        }
+
+        for entry in fs::read_dir(path)? {
+            let entry = entry?;
+            let ent_path = entry.path();
+
+            if ent_path.is_dir() {
+                continue;
+            }
+
+            if ent_path.file_name().is_none() {
+                continue;
+            }
+
+            if let Err(_e) = nix::unistd::access(&ent_path, AccessFlags::X_OK) {
+                continue;
+            }
+
+            executables.push(ent_path);
+        }
+    }
+    Ok(executables)
 }
 
 pub fn bell() {

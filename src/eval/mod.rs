@@ -11,6 +11,7 @@ use std::{
 use nix::unistd::AccessFlags;
 
 use crate::{
+    cli::parse_env_paths,
     error::{PeshError, PeshResult},
     eval::command::{CommandTask, composite::Command},
 };
@@ -136,11 +137,9 @@ pub fn get_home() -> PathBuf {
     std::env::home_dir().unwrap_or("/".into())
 }
 
-pub fn locate_executable(path_raw_env: &str, executable: &str) -> io::Result<Option<PathBuf>> {
-    let mut path: PathBuf;
+pub fn locate_executable(path: &str, executable: &str) -> io::Result<Option<PathBuf>> {
     let mut path_meta;
-    for path_raw in path_raw_env.split(":") {
-        path = path_raw.into();
+    for path in parse_env_paths(path) {
         match path.metadata() {
             Ok(m) => path_meta = m,
             Err(_) => continue,
