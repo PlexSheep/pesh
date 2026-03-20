@@ -53,6 +53,14 @@ impl Command {
     pub fn task(&self) -> &CommandTask {
         &self.task
     }
+
+    pub fn stdout_append(&self) -> bool {
+        self.stdout_append
+    }
+
+    pub fn stderr_append(&self) -> bool {
+        self.stderr_append
+    }
 }
 
 impl From<CommandTask> for Command {

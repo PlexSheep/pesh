@@ -86,6 +86,7 @@ impl Cli {
             .write(true)
             .create(true)
             .truncate(trunc)
+            .append(!trunc)
             .open(path)?;
         Ok(file)
     }
@@ -94,12 +95,12 @@ impl Cli {
         let redirs = Redirects {
             stdin: io::stdin(),
             stdout: if let Some(path) = command.stdout_to() {
-                Self::open_path_for_output(path, true)?.into()
+                Self::open_path_for_output(path, !command.stdout_append())?.into()
             } else {
                 io::stdout().into()
             },
             stderr: if let Some(path) = command.stderr_to() {
-                Self::open_path_for_output(path, true)?.into()
+                Self::open_path_for_output(path, !command.stderr_append())?.into()
             } else {
                 io::stderr().into()
             },
