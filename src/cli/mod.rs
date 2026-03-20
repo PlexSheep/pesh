@@ -1,9 +1,9 @@
 pub mod completion;
 pub mod theme;
 
-use std::path::Path;
 use std::process::ExitCode;
 use std::{fs, io};
+use std::{io::Write, path::Path};
 
 use clap::Parser;
 use dialoguer::theme::ColorfulTheme;
@@ -137,6 +137,7 @@ impl Cli {
                         let mut child = std::process::Command::new(&argv[0])
                             .args(&argv[1..])
                             .stdout(redirs.stdout)
+                            .stderr(redirs.stderr)
                             .spawn()?;
                         let res = child.wait()?;
                         Ok(if res.success() {
