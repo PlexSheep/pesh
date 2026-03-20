@@ -11,7 +11,7 @@ use std::{
 use nix::unistd::AccessFlags;
 
 use crate::{
-    error::{EvaluatorError, PeshError, PeshResult},
+    error::{PeshError, PeshResult},
     eval::command::{CommandTask, composite::Command},
 };
 

@@ -1,13 +1,4 @@
-use std::{
-    fs,
-    io::{self},
-    path::PathBuf,
-};
-
-use crate::{
-    error::{EvaluatorError, PeshError, PeshResult},
-    eval::command::{CommandTask, composite::Command},
-};
+use crate::error::{EvaluatorError, PeshError, PeshResult};
 
 pub fn split(command_raw: &str) -> PeshResult<Vec<String>> {
     match shlex::split(command_raw) {
