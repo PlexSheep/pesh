@@ -1,3 +1,5 @@
+use std::{collections::HashSet, sync::RwLock};
+
 use dialoguer::Completion;
 use strum::IntoEnumIterator;
 
@@ -6,13 +8,74 @@ use crate::{
     eval::command::BuiltinCommand,
 };
 
-#[derive(Default, Debug)]
-pub struct PeshCompletion {}
+#[derive(Debug)]
+pub struct PeshCompletion {
+    // unfortunately, due to constraints of the dialoguer completion api, we require interior
+    // mutuability for things like scrolling through completion options with multiple <TAB> inputs.
+    inner: RwLock<Inner>,
+}
+
+#[derive(Debug, Clone)]
+struct Inner {
+    last_completion: Option<String>,
+    last_completion_shifts: usize,
+}
+
+impl Inner {}
+
+impl PeshCompletion {
+    pub fn new() -> Self {
+        Self {
+            inner: Inner {
+                last_completion: None,
+                last_completion_shifts: 0,
+            }
+            .into(),
+        }
+    }
+
+    fn inner(&self) -> std::sync::RwLockReadGuard<'_, Inner> {
+        self.inner.read().unwrap()
+    }
+
+    fn inner_mut(&self) -> std::sync::RwLockWriteGuard<'_, Inner> {
+        self.inner.write().unwrap()
+    }
+
+    fn last_completion(&self) -> Option<String> {
+        self.inner().last_completion.clone()
+    }
+
+    fn last_completion_shifts(&self) -> usize {
+        self.inner().last_completion_shifts
+    }
+
+    fn set_last_completion_shifts(&self, last_completion_shifts: usize) {
+        self.inner_mut().last_completion_shifts = last_completion_shifts;
+    }
+
+    fn set_last_completion(&self, last_completion: Option<String>) {
+        self.inner_mut().last_completion = last_completion;
+    }
+}
+
+impl Default for PeshCompletion {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Completion for PeshCompletion {
     /// Simple completion implementation based on substring
     fn get(&self, input: &str) -> Option<String> {
-        let mut options: Vec<String> = BuiltinCommand::iter().map(|c| c.to_string()).collect();
+        if let Some(s) = &self.last_completion()
+            && !s.starts_with(input)
+        {
+            self.set_last_completion(None);
+            self.set_last_completion_shifts(0);
+        }
+
+        let mut options: HashSet<String> = BuiltinCommand::iter().map(|c| c.to_string()).collect();
         options.extend(
             binaries_in_path(&path_from_env())
                 .unwrap_or(vec![])
@@ -21,12 +84,16 @@ impl Completion for PeshCompletion {
                 .map(|b| b.file_name().unwrap().to_string_lossy().to_string()),
         );
 
-        let mut matches = options
+        let matches: HashSet<_> = options
             .into_iter()
-            .map(|v| format!("{v} "))
-            .filter(|s| s.starts_with(input));
+            .filter(|s| s.starts_with(input))
+            .collect();
 
-        let res = matches.next();
+        tracing::debug!("matches: {matches:?}");
+
+        let res = matches.into_iter().nth(self.last_completion_shifts());
+        self.set_last_completion(res.clone());
+
         if res.is_none() {
             bell();
         }
